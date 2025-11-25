@@ -1,0 +1,5 @@
+{
+  "name": "PyTutor AI",
+  "description": "An AI-powered Python practice platform. Upload your homework PDFs, and the AI will extract problems, provide a code editor, and automatically grade your solutions.",
+  "requestFramePermissions": []
+}

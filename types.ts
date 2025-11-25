@@ -24,3 +24,19 @@ export enum GradingStatus {
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR',
 }
+
+// 新增結構定義
+export interface Folder {
+  id: string;
+  name: string;
+  createdAt: number;
+  description?: string;
+}
+
+export interface QuestionBank {
+  id: string;
+  folderId: string;
+  title: string;
+  problems: Problem[];
+  createdAt: number;
+}

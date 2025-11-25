@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import ProblemCard from './components/ProblemCard';
 import { fileToGenerativePart, parsePdfProblems } from './services/geminiService';
-import { getFolders, getBanksByFolder, saveFolder, saveQuestionBank, deleteQuestionBank } from './services/storageService';
+import { getFolders, getBanksByFolder, saveFolder, saveQuestionBank, deleteQuestionBank, saveImportedBank, ensureImportFolder } from './services/storageService';
+import { generateShareLink, parseShareLink } from './services/shareService';
 import { ParsingStatus, Problem, Folder, QuestionBank } from './types';
 
 type ViewState = 'LOBBY' | 'FOLDER_VIEW' | 'PROBLEM_VIEW';
@@ -24,9 +26,45 @@ const App: React.FC = () => {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderDesc, setNewFolderDesc] = useState("");
   const [isUploadingBank, setIsUploadingBank] = useState(false);
+  
+  // Notification
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Load initial folders
+  // Helper to show toast
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  // 1. Initial Load & URL Check
   useEffect(() => {
+    // Check for share link
+    const params = new URLSearchParams(window.location.search);
+    const shareData = params.get('share');
+
+    if (shareData) {
+      const importedBank = parseShareLink(shareData);
+      if (importedBank) {
+        // Save to local storage
+        const savedBank = saveImportedBank(importedBank);
+        const importFolder = ensureImportFolder();
+        
+        // Update URL to remove the long query string
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Update State
+        setFolders(getFolders());
+        setActiveFolder(importFolder);
+        setActiveBank(savedBank);
+        setView('PROBLEM_VIEW');
+        showToast(`已成功匯入題庫：${savedBank.title}`);
+        return; // Skip default loading
+      } else {
+        showToast("無效的分享連結");
+      }
+    }
+
+    // Default load
     setFolders(getFolders());
   }, []);
 
@@ -44,6 +82,8 @@ const App: React.FC = () => {
     setActiveBank(null);
     setIsUploadingBank(false);
     setParsingStatus(ParsingStatus.IDLE);
+    // Refresh folders in case something changed
+    setFolders(getFolders());
   };
 
   const openFolder = (folder: Folder) => {
@@ -102,7 +142,19 @@ const App: React.FC = () => {
               setBanks(getBanksByFolder(activeFolder.id));
           }
       }
-  }
+  };
+
+  const handleShareBank = (e: React.MouseEvent, bank: QuestionBank) => {
+    e.stopPropagation();
+    const url = generateShareLink(bank);
+    if (url) {
+      navigator.clipboard.writeText(url).then(() => {
+        showToast("📋 連結已複製！傳送給學生即可開始練習。");
+      }).catch(() => {
+        showToast("❌ 複製失敗，請手動複製網址");
+      });
+    }
+  };
 
   // --- Render Components ---
 
@@ -133,7 +185,18 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20 relative">
+      
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed top-20 right-4 z-[100] animate-bounceIn">
+          <div className="bg-slate-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+             <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+             {toastMsg}
+          </div>
+        </div>
+      )}
+
       {/* Navbar */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -206,10 +269,16 @@ const App: React.FC = () => {
                     <div 
                         key={folder.id} 
                         onClick={() => openFolder(folder)}
-                        className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all group"
+                        className={`bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-all group
+                             ${folder.id === 'imported-folder-shared' ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200 hover:border-blue-300'}
+                        `}
                     >
                         <div className="flex items-start justify-between mb-4">
-                            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <div className={`p-3 rounded-lg transition-colors
+                                ${folder.id === 'imported-folder-shared' 
+                                    ? 'bg-amber-100 text-amber-600 group-hover:bg-amber-500 group-hover:text-white' 
+                                    : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white'}
+                            `}>
                                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
                             </div>
                         </div>
@@ -229,10 +298,15 @@ const App: React.FC = () => {
           <div className="animate-fadeIn">
              <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900">{activeFolder.name}</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        {activeFolder.name}
+                        {activeFolder.id === 'imported-folder-shared' && (
+                            <span className="bg-amber-100 text-amber-700 text-xs px-2 py-1 rounded-full">外部匯入</span>
+                        )}
+                    </h2>
                     <p className="text-slate-500 mt-1">{activeFolder.description}</p>
                 </div>
-                {!isUploadingBank && (
+                {!isUploadingBank && activeFolder.id !== 'imported-folder-shared' && (
                     <button 
                         onClick={() => setIsUploadingBank(true)}
                         className="bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -268,7 +342,9 @@ const App: React.FC = () => {
                 <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
                     <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <p className="text-slate-500 text-lg">此資料夾尚未建立題庫</p>
-                    <p className="text-slate-400 text-sm mt-1">點擊右上方按鈕上傳 PDF 來建立第一個題庫</p>
+                    {activeFolder.id !== 'imported-folder-shared' && (
+                        <p className="text-slate-400 text-sm mt-1">點擊右上方按鈕上傳 PDF 來建立第一個題庫</p>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -288,6 +364,15 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
+                                {/* Share Button */}
+                                <button 
+                                    onClick={(e) => handleShareBank(e, bank)}
+                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex items-center gap-1 group-hover/btn:w-auto"
+                                    title="分享連結給學生"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                                </button>
+
                                 <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-medium">
                                     進入練習
                                 </span>
@@ -309,14 +394,23 @@ const App: React.FC = () => {
         {/* --- VIEW: PROBLEM (Solver) --- */}
         {view === 'PROBLEM_VIEW' && activeBank && (
           <div className="animate-fadeIn">
-            <div className="mb-8">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                    <span className="bg-indigo-600 text-white text-sm px-2 py-1 rounded shadow-sm">題庫</span>
-                    {activeBank.title}
-                </h2>
-                <div className="mt-2 text-slate-500 text-sm">
-                    共 {activeBank.problems.length} 題 • 請依序完成練習
+            <div className="mb-8 flex justify-between items-start">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                        <span className="bg-indigo-600 text-white text-sm px-2 py-1 rounded shadow-sm">題庫</span>
+                        {activeBank.title}
+                    </h2>
+                    <div className="mt-2 text-slate-500 text-sm">
+                        共 {activeBank.problems.length} 題 • 請依序完成練習
+                    </div>
                 </div>
+                <button 
+                    onClick={(e) => handleShareBank(e, activeBank)}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors text-sm font-bold"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                    分享連結
+                </button>
             </div>
             
             <div className="space-y-6">

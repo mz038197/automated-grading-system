@@ -34,21 +34,23 @@ export const parsePdfProblems = async (base64Data: string): Promise<Problem[]> =
           },
           {
             text: `
-            Please analyze this PDF and extract the programming problems. 
-            
-            IMPORTANT FORMATTING INSTRUCTIONS:
-            1. Fix broken lines: PDF text often breaks lines in the middle of sentences. Please merge them back into coherent paragraphs.
-            2. Structure: The 'description' field MUST include:
-               - The Problem Statement.
-               - Input Format requirements.
-               - Output Format requirements.
-               - **Sample Input** and **Sample Output** (This is mandatory. Do not skip).
-            3. Layout: Use clear spacing between sections in the description.
+            You are a specialized PDF extractor for programming problems.
+            Please analyze this PDF and extract the programming problems into a structured format.
+
+            CRITICAL FORMATTING INSTRUCTIONS:
+            1. **Fix Line Breaks (De-hyphenation)**: PDF text extraction often results in words being split across lines or sentences breaking mid-flow. You MUST merge these lines back into coherent paragraphs. Do not leave random newlines in the middle of sentences.
+            2. **Preserve Structure**: The 'description' field MUST be formatted using Markdown.
+               - Use **Bold** for headers like 'Input Format', 'Output Format'.
+               - Use \`\`\` (code blocks) for **Sample Input** and **Sample Output**. This is extremely important for readability.
+            3. **Content Requirements**:
+               - Include the full Problem Statement.
+               - Include Input/Output constraints.
+               - **Sample Input** and **Sample Output** are MANDATORY. If they exist in the PDF, you must transcribe them exactly.
             
             Return a JSON array where each object represents a problem with:
             - id: Problem number (e.g., "1", "Q2").
             - title: Problem title.
-            - description: The full formatted text as described above.
+            - description: The full formatted text (Markdown allowed).
             `
           }
         ]
@@ -62,7 +64,7 @@ export const parsePdfProblems = async (base64Data: string): Promise<Problem[]> =
             properties: {
               id: { type: Type.STRING, description: "The problem number" },
               title: { type: Type.STRING, description: "The problem title" },
-              description: { type: Type.STRING, description: "Full problem description including Sample Input/Output, with fixed line breaks." }
+              description: { type: Type.STRING, description: "Full problem description in Markdown. Ensure Sample Inputs are in code blocks." }
             },
             required: ["id", "title", "description"]
           }

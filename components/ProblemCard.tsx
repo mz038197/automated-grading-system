@@ -10,12 +10,18 @@ const ProblemCard: React.FC<ProblemCardProps> = ({ problem }) => {
   const [code, setCode] = useState<string>('# 在此撰寫你的 Python 程式碼\n\ndef solution():\n    pass');
   const [status, setStatus] = useState<GradingStatus>(GradingStatus.IDLE);
   const [result, setResult] = useState<SubmissionResult | null>(null);
+  
+  // Edit Mode States
+  const [isEditing, setIsEditing] = useState(false);
+  const [description, setDescription] = useState(problem.description);
 
   const handleSubmit = async () => {
     setStatus(GradingStatus.GRADING);
     setResult(null);
     try {
-      const gradingResult = await gradeCode(problem, code);
+      // Use the potentially edited description for grading context
+      const currentProblemContext = { ...problem, description };
+      const gradingResult = await gradeCode(currentProblemContext, code);
       setResult(gradingResult);
       setStatus(GradingStatus.SUCCESS);
     } catch (error) {
@@ -24,21 +30,75 @@ const ProblemCard: React.FC<ProblemCardProps> = ({ problem }) => {
     }
   };
 
+  const handleSaveDescription = () => {
+    setIsEditing(false);
+  };
+
+  const handleCancelDescription = () => {
+    setDescription(problem.description);
+    setIsEditing(false);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden mb-10 transition-shadow hover:shadow-lg">
       {/* Header / Problem Description */}
       <div className="p-8 border-b border-slate-100">
-        <div className="flex items-center gap-4 mb-6">
-            <span className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-lg shadow-sm">
-                {problem.id}
-            </span>
-            <h3 className="text-2xl font-bold text-slate-800">{problem.title}</h3>
+        <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+                <span className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-lg shadow-sm">
+                    {problem.id}
+                </span>
+                <h3 className="text-2xl font-bold text-slate-800">{problem.title}</h3>
+            </div>
+            
+            {/* Edit Button */}
+            {!isEditing && (
+                <button 
+                    onClick={() => setIsEditing(true)}
+                    className="text-slate-400 hover:text-blue-600 transition-colors p-2 rounded-full hover:bg-blue-50"
+                    title="編輯題目敘述"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                </button>
+            )}
         </div>
+
         {/* Description Box */}
         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200/60">
-            <div className="prose prose-slate max-w-none text-slate-700 font-medium whitespace-pre-wrap break-words leading-7">
-                {problem.description}
-            </div>
+            {isEditing ? (
+                <div className="animate-fadeIn">
+                    <textarea 
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full h-64 p-4 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm leading-relaxed"
+                    />
+                    <div className="flex justify-end gap-3 mt-3">
+                        <button 
+                            onClick={handleCancelDescription}
+                            className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                        >
+                            取消
+                        </button>
+                        <button 
+                            onClick={handleSaveDescription}
+                            className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                        >
+                            儲存修改
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                // Used Tailwind Typography (prose) for better Markdown rendering (Sample Input blocks, etc)
+                <div className="prose prose-slate max-w-none text-slate-700 font-medium whitespace-pre-wrap break-words leading-7">
+                    {/* Hacky way to handle newlines if not plain markdown, but usually prose handles blocks well */}
+                     {description.split('\n').map((line, i) => (
+                        <React.Fragment key={i}>
+                            {line}
+                            <br />
+                        </React.Fragment>
+                    ))}
+                </div>
+            )}
         </div>
       </div>
 

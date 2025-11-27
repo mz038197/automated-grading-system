@@ -40,3 +40,10 @@ export interface QuestionBank {
   problems: Problem[];
   createdAt: number;
 }
+
+export interface User {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+}

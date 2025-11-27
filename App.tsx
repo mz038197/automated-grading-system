@@ -1,15 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import ProblemCard from './components/ProblemCard';
 import { fileToGenerativePart, parsePdfProblems } from './services/geminiService';
 import { getFolders, getBanksByFolder, saveFolder, saveQuestionBank, deleteQuestionBank, saveImportedBank, ensureImportFolder } from './services/storageService';
 import { generateShareLink, parseShareLink } from './services/shareService';
-import { ParsingStatus, Problem, Folder, QuestionBank } from './types';
+import { signIn, signOut, observeAuth } from './services/authService';
+import { ParsingStatus, Problem, Folder, QuestionBank, User } from './types';
+import { APP_MODE } from './config';
 
 type ViewState = 'LOBBY' | 'FOLDER_VIEW' | 'PROBLEM_VIEW';
 
 const App: React.FC = () => {
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // Navigation State
   const [view, setView] = useState<ViewState>('LOBBY');
   const [activeFolder, setActiveFolder] = useState<Folder | null>(null);
@@ -36,54 +41,109 @@ const App: React.FC = () => {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
-  // 1. Initial Load & URL Check
+  // 1. Initial Auth Check
   useEffect(() => {
-    // Check for share link
-    const params = new URLSearchParams(window.location.search);
-    const shareData = params.get('share');
-
-    if (shareData) {
-      const importedBank = parseShareLink(shareData);
-      if (importedBank) {
-        // Save to local storage
-        const savedBank = saveImportedBank(importedBank);
-        const importFolder = ensureImportFolder();
-        
-        // Update URL to remove the long query string
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Update State
-        setFolders(getFolders());
-        setActiveFolder(importFolder);
-        setActiveBank(savedBank);
-        setView('PROBLEM_VIEW');
-        showToast(`已成功匯入題庫：${savedBank.title}`);
-        return; // Skip default loading
-      } else {
-        showToast("無效的分享連結");
-      }
-    }
-
-    // Default load
-    setFolders(getFolders());
+    const unsubscribe = observeAuth((currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
+
+  // 2. Load Data when User is available
+  useEffect(() => {
+    const initData = async () => {
+      if (!user) return;
+
+      // Check for share link
+      const params = new URLSearchParams(window.location.search);
+      const shareData = params.get('share');
+
+      if (shareData) {
+        const importedBank = parseShareLink(shareData);
+        if (importedBank) {
+          try {
+            const savedBank = await saveImportedBank(importedBank);
+            const importFolder = await ensureImportFolder();
+            
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+            const allFolders = await getFolders();
+            setFolders(allFolders);
+            setActiveFolder(importFolder);
+            setActiveBank(savedBank);
+            setView('PROBLEM_VIEW');
+            showToast(`已成功匯入題庫：${savedBank.title}`);
+            return;
+          } catch (e) {
+            console.error(e);
+            showToast("匯入題庫失敗");
+          }
+        } else {
+          showToast("無效的分享連結");
+        }
+      }
+
+      // Default load
+      try {
+        const loadedFolders = await getFolders();
+        setFolders(loadedFolders);
+      } catch (e) {
+        console.error("Failed to load folders:", e);
+        showToast("載入資料失敗");
+      }
+    };
+
+    if (!authLoading) {
+      initData();
+    }
+  }, [user, authLoading]);
 
   // Load banks when folder changes
   useEffect(() => {
-    if (activeFolder) {
-      setBanks(getBanksByFolder(activeFolder.id));
+    const loadBanks = async () => {
+      if (activeFolder && user) {
+        const loadedBanks = await getBanksByFolder(activeFolder.id);
+        setBanks(loadedBanks);
+      }
+    };
+    loadBanks();
+  }, [activeFolder, user]);
+
+  // Auth Handlers
+  const handleLogin = async () => {
+    try {
+      await signIn();
+    } catch (e) {
+      showToast("登入失敗，請重試");
     }
-  }, [activeFolder]);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setFolders([]);
+      setBanks([]);
+      setActiveFolder(null);
+      setActiveBank(null);
+      setView('LOBBY');
+    } catch (e) {
+      showToast("登出失敗");
+    }
+  };
 
   // Navigation Handlers
-  const goHome = () => {
+  const goHome = async () => {
     setView('LOBBY');
     setActiveFolder(null);
     setActiveBank(null);
     setIsUploadingBank(false);
     setParsingStatus(ParsingStatus.IDLE);
-    // Refresh folders in case something changed
-    setFolders(getFolders());
+    // Refresh folders
+    if (user) {
+        const loadedFolders = await getFolders();
+        setFolders(loadedFolders);
+    }
   };
 
   const openFolder = (folder: Folder) => {
@@ -97,14 +157,23 @@ const App: React.FC = () => {
   };
 
   // Creation Handlers
-  const handleCreateFolder = (e: React.FormEvent) => {
+  const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
-    const newFolder = saveFolder(newFolderName, newFolderDesc);
-    setFolders([...folders, newFolder]);
-    setIsCreatingFolder(false);
-    setNewFolderName("");
-    setNewFolderDesc("");
+    
+    try {
+      await saveFolder(newFolderName, newFolderDesc);
+      // Refresh list
+      const updatedFolders = await getFolders();
+      setFolders(updatedFolders);
+      
+      setIsCreatingFolder(false);
+      setNewFolderName("");
+      setNewFolderDesc("");
+    } catch (error) {
+      console.error("Failed to create folder", error);
+      showToast("建立資料夾失敗");
+    }
   };
 
   const handleFileSelect = async (file: File) => {
@@ -120,12 +189,13 @@ const App: React.FC = () => {
         setErrorMsg("未能從 PDF 中識別出任何題目，請確認檔案內容是否清晰。");
         setParsingStatus(ParsingStatus.ERROR);
       } else {
-        // Use filename as default title (removing extension)
         const defaultTitle = file.name.replace(/\.[^/.]+$/, "");
-        const newBank = saveQuestionBank(activeFolder.id, defaultTitle, extractedProblems);
+        const newBank = await saveQuestionBank(activeFolder.id, defaultTitle, extractedProblems);
+        
         setBanks([newBank, ...banks]);
+        
         setParsingStatus(ParsingStatus.SUCCESS);
-        setIsUploadingBank(false); // Close uploader
+        setIsUploadingBank(false); 
       }
     } catch (err) {
       console.error(err);
@@ -134,12 +204,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteBank = (e: React.MouseEvent, bankId: string) => {
+  const handleDeleteBank = async (e: React.MouseEvent, bankId: string) => {
       e.stopPropagation();
       if(window.confirm('確定要刪除這個題庫嗎？')) {
-          deleteQuestionBank(bankId);
+          await deleteQuestionBank(bankId);
           if(activeFolder) {
-              setBanks(getBanksByFolder(activeFolder.id));
+              const updatedBanks = await getBanksByFolder(activeFolder.id);
+              setBanks(updatedBanks);
           }
       }
   };
@@ -165,6 +236,57 @@ const App: React.FC = () => {
 
   // --- Render Components ---
 
+  // 1. Loading Screen
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+         <div className="flex flex-col items-center">
+            <svg className="animate-spin h-10 w-10 text-primary mb-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
+            <p className="text-slate-500 font-medium">系統載入中...</p>
+         </div>
+      </div>
+    );
+  }
+
+  // 2. Login Screen
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
+            <div className="bg-blue-600 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-6 shadow-md text-white">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-800 mb-2">PyTutor AI</h1>
+            <p className="text-slate-500 mb-8 leading-relaxed">您的 AI Python 智慧助教。<br/>上傳 PDF，自動出題，即時評分。</p>
+            
+            <button 
+                onClick={handleLogin}
+                className="w-full bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-3"
+            >
+                {APP_MODE === 'dev' ? (
+                   <>
+                     <span className="w-6 h-6 bg-slate-200 rounded-full flex items-center justify-center text-xs">🛠️</span>
+                     Dev 模式 (模擬登入)
+                   </>
+                ) : (
+                   <>
+                     <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-6 h-6" />
+                     使用 Google 帳號登入
+                   </>
+                )}
+            </button>
+            <p className="mt-6 text-xs text-slate-400">
+                {APP_MODE === 'dev' ? '目前為開發模式，將使用模擬帳號' : '目前為正式模式，資料將儲存於雲端'}
+            </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Main App View
   const renderBreadcrumbs = () => (
     <nav className="flex items-center text-sm text-slate-500 mb-6 bg-white px-4 py-3 rounded-lg shadow-sm border border-slate-100 sticky top-20 z-40">
       <button onClick={goHome} className="hover:text-primary font-medium flex items-center gap-1">
@@ -206,12 +328,38 @@ const App: React.FC = () => {
 
       {/* Navbar */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={goHome}>
             <div className="bg-blue-600 p-2 rounded-lg text-white shadow-md">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
             </div>
-            <span className="text-xl font-bold text-slate-800 tracking-tight">PyTutor AI</span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-slate-800 tracking-tight leading-tight">PyTutor AI</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+             {/* User Profile */}
+             <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+                <div className="text-right hidden sm:block">
+                    <p className="text-sm font-bold text-slate-800">{user.displayName || "使用者"}</p>
+                    <p className="text-xs text-slate-400">{APP_MODE === 'dev' ? 'Dev Mode' : 'Pro Member'}</p>
+                </div>
+                {user.photoURL ? (
+                    <img src={user.photoURL} alt="Avatar" className="w-9 h-9 rounded-full border border-slate-200 shadow-sm" />
+                ) : (
+                    <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                        {user.displayName ? user.displayName[0] : "U"}
+                    </div>
+                )}
+                <button 
+                    onClick={handleLogout}
+                    className="text-sm text-slate-500 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors ml-1"
+                    title="登出"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                </button>
+             </div>
           </div>
         </div>
       </nav>

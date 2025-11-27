@@ -156,10 +156,17 @@ const App: React.FC = () => {
     }
   };
 
+  const scrollToProblem = (problemId: string) => {
+    const element = document.getElementById(`problem-${problemId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   // --- Render Components ---
 
   const renderBreadcrumbs = () => (
-    <nav className="flex items-center text-sm text-slate-500 mb-6 bg-white px-4 py-3 rounded-lg shadow-sm border border-slate-100">
+    <nav className="flex items-center text-sm text-slate-500 mb-6 bg-white px-4 py-3 rounded-lg shadow-sm border border-slate-100 sticky top-20 z-40">
       <button onClick={goHome} className="hover:text-primary font-medium flex items-center gap-1">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
         大廳
@@ -178,7 +185,7 @@ const App: React.FC = () => {
       {activeBank && (
         <>
           <span className="mx-2">/</span>
-          <span className="text-slate-900 font-bold">{activeBank.title}</span>
+          <span className="text-slate-900 font-bold truncate max-w-[150px] sm:max-w-xs">{activeBank.title}</span>
         </>
       )}
     </nav>
@@ -209,13 +216,13 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         
         {renderBreadcrumbs()}
 
         {/* --- VIEW: LOBBY (Folders) --- */}
         {view === 'LOBBY' && (
-          <div className="animate-fadeIn">
+          <div className="animate-fadeIn max-w-6xl mx-auto">
             <div className="flex justify-between items-end mb-8">
                 <div>
                     <h1 className="text-3xl font-extrabold text-slate-900">我的題庫大廳</h1>
@@ -295,7 +302,7 @@ const App: React.FC = () => {
 
         {/* --- VIEW: FOLDER (Banks List) --- */}
         {view === 'FOLDER_VIEW' && activeFolder && (
-          <div className="animate-fadeIn">
+          <div className="animate-fadeIn max-w-6xl mx-auto">
              <div className="flex justify-between items-center mb-8">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -394,33 +401,80 @@ const App: React.FC = () => {
         {/* --- VIEW: PROBLEM (Solver) --- */}
         {view === 'PROBLEM_VIEW' && activeBank && (
           <div className="animate-fadeIn">
-            <div className="mb-8 flex justify-between items-start">
+            <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-                        <span className="bg-indigo-600 text-white text-sm px-2 py-1 rounded shadow-sm">題庫</span>
-                        {activeBank.title}
+                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3 flex-wrap">
+                        <span className="bg-indigo-600 text-white text-sm px-2 py-1 rounded shadow-sm whitespace-nowrap">題庫</span>
+                        <span className="break-all">{activeBank.title}</span>
                     </h2>
-                    <div className="mt-2 text-slate-500 text-sm">
+                    <div className="mt-1 text-slate-500 text-sm">
                         共 {activeBank.problems.length} 題 • 請依序完成練習
                     </div>
                 </div>
                 <button 
                     onClick={(e) => handleShareBank(e, activeBank)}
-                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors text-sm font-bold"
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors text-sm font-bold whitespace-nowrap"
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
                     分享連結
                 </button>
             </div>
             
-            <div className="space-y-6">
-                {activeBank.problems.map((problem, index) => (
-                    <ProblemCard key={`${activeBank.id}-${problem.id}-${index}`} problem={problem} />
+            {/* Mobile Horizontal TOC */}
+            <div className="lg:hidden flex overflow-x-auto gap-2 pb-4 mb-2 scrollbar-hide -mx-4 px-4">
+                {activeBank.problems.map((problem) => (
+                    <button
+                        key={problem.id}
+                        onClick={() => scrollToProblem(problem.id)}
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-full shadow-sm text-sm text-slate-700 active:bg-blue-50 active:border-blue-300"
+                    >
+                        <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">{problem.id}</span>
+                        <span className="max-w-[100px] truncate">{problem.title}</span>
+                    </button>
                 ))}
             </div>
 
-             <div className="mt-12 text-center text-slate-400 text-sm">
-                <p>題目內容由 AI 解析，可點擊題目右上角編輯按鈕修正內容。</p>
+            <div className="flex flex-col lg:flex-row gap-8 items-start relative">
+                
+                {/* Desktop Sticky TOC Sidebar */}
+                <aside className="hidden lg:block w-64 sticky top-24 shrink-0 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 scrollbar-thin">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                        <h3 className="font-bold text-slate-800 mb-3 px-2">題目列表</h3>
+                        <div className="space-y-1">
+                            {activeBank.problems.map((problem) => (
+                                <button
+                                    key={problem.id}
+                                    onClick={() => scrollToProblem(problem.id)}
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm text-slate-600 flex items-center gap-3 group"
+                                >
+                                    <span className="w-6 h-6 rounded bg-slate-100 text-slate-500 group-hover:bg-blue-200 group-hover:text-blue-700 flex items-center justify-center text-xs font-bold transition-colors">
+                                        {problem.id}
+                                    </span>
+                                    <span className="truncate flex-1">{problem.title}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </aside>
+
+                {/* Main Content Area */}
+                <div className="flex-1 w-full min-w-0">
+                    <div className="space-y-6">
+                        {activeBank.problems.map((problem, index) => (
+                            <div 
+                                id={`problem-${problem.id}`} 
+                                key={`${activeBank.id}-${problem.id}-${index}`}
+                                className="scroll-mt-28" // Scroll margin for fixed header
+                            >
+                                <ProblemCard problem={problem} />
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-12 text-center text-slate-400 text-sm">
+                        <p>題目內容由 AI 解析，可點擊題目右上角編輯按鈕修正內容。</p>
+                    </div>
+                </div>
             </div>
           </div>
         )}

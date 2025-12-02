@@ -17,14 +17,40 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 };
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-// 在第 19 行後暫時添加
-console.log('API Key status:', process.env.API_KEY ? 'LOADED' : 'MISSING');
-console.log('API Key:', process.env.API_KEY);
+console.log('🔑 測試 API Key...');
+console.log('API Key 長度:', process.env.API_KEY?.length);
+console.log('API Key 前10字符:', process.env.API_KEY?.substring(0, 10));
+console.log('API Key 後5字符:', process.env.API_KEY?.substring(-5));
+// 測試 API Key 是否有效的簡單函數
+export const testApiKey = async (): Promise<boolean> => {
+  try {
+    console.log('🔑 測試 API Key...');
+    console.log('API Key 長度:', process.env.API_KEY?.length);
+    console.log('API Key 前10字符:', process.env.API_KEY?.substring(0, 10));
+    console.log('API Key 後5字符:', process.env.API_KEY?.substring(-5));
+    
+    const response = await ai.models.generateContent({
+      model: "gemini-pro",
+      contents: "請回答：Hello"
+    });
+    
+    console.log('✅ API Key 測試成功！');
+    console.log('回應:', response.text);
+    return true;
+  } catch (error) {
+    console.error('❌ API Key 測試失敗:', error);
+    console.error('錯誤詳情:', JSON.stringify(error, null, 2));
+    return false;
+  }
+};
 
 export const parsePdfProblems = async (base64Data: string): Promise<Problem[]> => {
-  const model = "gemini-2.5-flash"; // High context window, good for reading docs
+  const model = "gemini-pro"; // 使用最穩定的基本模型
 
   try {
+    console.log('📄 正在解析 PDF，模型:', model);
+    console.log('🔑 API Key 狀態:', process.env.API_KEY ? '已載入' : '未載入');
+    
     const response = await ai.models.generateContent({
       model: model,
       contents: {
@@ -82,14 +108,21 @@ export const parsePdfProblems = async (base64Data: string): Promise<Problem[]> =
 
   } catch (error) {
     console.error("Error parsing PDF:", error);
+    console.error("API Key 長度:", process.env.API_KEY?.length);
+    console.error("使用的模型:", model);
+    if (error.message?.includes('API key not valid')) {
+      throw new Error("API Key 無效，請檢查 Gemini API Key 設定");
+    }
     throw new Error("無法解析 PDF，請確認檔案格式或稍後再試。");
   }
 };
 
 export const gradeCode = async (problem: Problem, userCode: string): Promise<SubmissionResult> => {
-  const model = "gemini-3-pro-preview"; // Smarter model for logic checking
+  const model = "gemini-pro"; // 使用最穩定的基本模型
 
   try {
+    console.log('📝 正在評分程式碼，模型:', model);
+    console.log('🔑 API Key 狀態:', process.env.API_KEY ? '已載入' : '未載入');
     const prompt = `
       你是一個嚴格的 Python 程式設計助教。
       
@@ -136,6 +169,11 @@ export const gradeCode = async (problem: Problem, userCode: string): Promise<Sub
 
   } catch (error) {
     console.error("Error grading code:", error);
+    console.error("API Key 長度:", process.env.API_KEY?.length);
+    console.error("使用的模型:", model);
+    if (error.message?.includes('API key not valid')) {
+      throw new Error("API Key 無效，請檢查 Gemini API Key 設定");
+    }
     throw new Error("評分系統暫時無法使用，請稍後再試。");
   }
 };

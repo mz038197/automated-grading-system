@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gemini API 測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        button { padding: 10px 20px; font-size: 16px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Gemini API Key 測試工具</h1>
+    
+    <button onclick="testApiKey()">測試 API Key</button>
+    <button onclick="testBasicCall()">測試基本調用</button>
+    <button onclick="clearResults()">清除結果</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        // 注意：這個測試頁面需要在您的應用程式中使用，
+        // 因為它需要存取 process.env.API_KEY
+        
+        function addResult(message, isSuccess = true) {
+            const div = document.createElement('div');
+            div.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong><br>${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        async function testApiKey() {
+            addResult('🔄 開始測試 API Key...', true);
+            
+            try {
+                // 這需要在實際的 React 應用中調用
+                console.log('請在瀏覽器 Console 中查看詳細資訊');
+                addResult('請檢查瀏覽器 Console 中的詳細測試結果', true);
+                
+                // 模擬測試（實際測試需要在 React 應用中進行）
+                addResult(`
+                    <strong>API Key 檢查清單：</strong><br>
+                    1. API Key 長度應該約為 39 字符<br>
+                    2. 應該以 'AIzaSy' 開頭<br>
+                    3. 不應該包含引號或空格<br>
+                    4. 在 Google AI Studio 中應該顯示為 Active
+                `, true);
+                
+            } catch (error) {
+                addResult(`❌ 測試失敗: ${error.message}`, false);
+            }
+        }
+        
+        async function testBasicCall() {
+            addResult('🔄 測試基本 API 調用...', true);
+            addResult(`
+                <strong>手動測試步驟：</strong><br>
+                1. 開啟瀏覽器開發者工具<br>
+                2. 在 Console 中執行: testApiKey()<br>
+                3. 檢查是否有錯誤訊息<br>
+                4. 如果成功，應該看到 "API Key 測試成功" 訊息
+            `, true);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // 頁面載入時的提示
+        window.onload = function() {
+            addResult(`
+                <strong>使用說明：</strong><br>
+                1. 這個頁面需要在您的 React 應用中開啟才能正常測試<br>
+                2. 確保開發服務器正在運行 (http://localhost:3003)<br>
+                3. 在應用中導入並調用 testApiKey 函數<br>
+                4. 檢查 Console 中的詳細輸出
+            `, true);
+        };
+    </script>
+</body>
+</html>

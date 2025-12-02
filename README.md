@@ -19,13 +19,19 @@ View your app in AI Studio: https://ai.studio/apps/drive/19-S88wPcEXtCk3m2_1PIsF
    npm install
    ```
 
-2. **設定環境變數** (可選)：
-   - 創建 `.env.local` 檔案
-   - 設定 Gemini API Key：
+2. **設定 Gemini API Key** (AI 功能必需)：
+   - 取得 API Key：訪問 [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - 創建 `.env.local` 檔案：
+     ```bash
+     # 在專案根目錄執行
+     echo "API_KEY=your-actual-gemini-api-key" > .env.local
      ```
-     API_KEY=your-gemini-api-key-here
+   - 或手動創建 `.env.local`：
+     ```env
+     API_KEY=your-actual-gemini-api-key
+     NODE_ENV=development
      ```
-   - 如果沒有 API Key，應用程式仍可運行但 AI 功能會無法使用
+   - ⚠️ **重要**：`.env.local` 不會被提交到 git（已在 .gitignore 中）
 
 3. **啟動開發服務器**：
    ```bash

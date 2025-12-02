@@ -17,6 +17,9 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 };
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// 在第 19 行後暫時添加
+console.log('API Key status:', process.env.API_KEY ? 'LOADED' : 'MISSING');
+console.log('API Key:', process.env.API_KEY);
 
 export const parsePdfProblems = async (base64Data: string): Promise<Problem[]> => {
   const model = "gemini-2.5-flash"; // High context window, good for reading docs

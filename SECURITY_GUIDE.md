@@ -95,6 +95,55 @@ service cloud.firestore {
 2. **分享連結**：包含完整題庫資料，請確保不分享敏感內容
 3. **開發模式**：使用 localStorage，生產環境會自動切換到 Firestore
 
+## 🔑 本地開發 API Key 設定
+
+### **Gemini API Key 配置**
+
+1. **創建環境變數文件**：
+   ```bash
+   # 在專案根目錄創建 .env.local
+   API_KEY=your-actual-gemini-api-key-here
+   NODE_ENV=development
+   ```
+
+2. **Vite 環境變數讀取**：
+   - 已在 `vite.config.ts` 中配置
+   - 使用 `loadEnv(mode, process.cwd(), '')` 載入所有環境變數
+   - 透過 `define` 注入到前端代碼
+
+3. **環境變數優先順序**：
+   ```
+   .env.local          # 最高優先級（被 git 忽略）
+   .env.development    # 開發環境專用
+   .env               # 通用設定
+   ```
+
+4. **安全性確保**：
+   - ✅ `.env.local` 已在 `.gitignore` 中被忽略（`*.local` 規則）
+   - ✅ API key 不會被提交到版控系統
+   - ✅ 開發與生產環境分離
+
+### **設定步驟**
+
+1. **取得 Gemini API Key**：
+   - 訪問 [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - 創建新的 API Key
+
+2. **本地設定**：
+   ```bash
+   # 創建 .env.local 文件
+   echo "API_KEY=your-actual-key-here" > .env.local
+   ```
+
+3. **重啟開發服務器**：
+   ```bash
+   npm run dev
+   ```
+
+4. **驗證功能**：
+   - 上傳 PDF 文件測試解析功能
+   - 提交程式碼測試評分功能
+
 ## 🚀 驗證步驟
 
 部署後請驗證：
@@ -102,3 +151,4 @@ service cloud.firestore {
 2. 未登入狀態無法存取任何功能
 3. 分享功能正常運作
 4. Firebase Console 中可看到正確的用戶資料結構
+5. **本地開發**：AI 功能正常運作（需要正確的 API key）

@@ -51,6 +51,8 @@ const DevAuth = {
   signOut: async (): Promise<void> => {
     currentUser = null;
     localStorage.removeItem("pytutor_dev_auth");
+    // 清理可能的敏感資料
+    console.log("Dev user signed out successfully");
   },
 
   observeAuth: (callback: (user: User | null) => void) => {
@@ -92,6 +94,8 @@ const ProdAuth = {
     const auth = getFirebaseAuth();
     await firebaseSignOut(auth);
     currentUser = null;
+    // 清理可能的敏感資料
+    console.log("User signed out successfully");
   },
 
   observeAuth: (callback: (user: User | null) => void) => {

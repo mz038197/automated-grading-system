@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 用戶只能存取自己的資料
+    match /users/{userId}/folders/{folderId} {
+      // 只允許經過身份驗證的用戶存取自己的 folders
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /users/{userId}/banks/{bankId} {
+      // 只允許經過身份驗證的用戶存取自己的 banks (題庫)
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 拒絶所有其他路径的存取
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

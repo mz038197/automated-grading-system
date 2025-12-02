@@ -8,18 +8,20 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    server: {
+      port: 3000,
+      host: true
+    },
+    preview: {
+      port: 3000,
+      host: true
+    },
     define: {
       // 這裡定義全域常數替換
       // 將程式碼中的 'process.env' 字串替換為實際的環境變數物件
       'process.env': {
         NODE_ENV: JSON.stringify(mode),
-        API_KEY: JSON.stringify(env.API_KEY),
-        FIREBASE_API_KEY: JSON.stringify(env.FIREBASE_API_KEY),
-        FIREBASE_AUTH_DOMAIN: JSON.stringify(env.FIREBASE_AUTH_DOMAIN),
-        FIREBASE_PROJECT_ID: JSON.stringify(env.FIREBASE_PROJECT_ID),
-        FIREBASE_STORAGE_BUCKET: JSON.stringify(env.FIREBASE_STORAGE_BUCKET),
-        FIREBASE_MESSAGING_SENDER_ID: JSON.stringify(env.FIREBASE_MESSAGING_SENDER_ID),
-        FIREBASE_APP_ID: JSON.stringify(env.FIREBASE_APP_ID),
+        API_KEY: JSON.stringify(env.API_KEY || '')
       }
     }
   };

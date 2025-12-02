@@ -144,12 +144,18 @@ const FirestoreStorage = {
   // Helpers to get collection ref with user isolation
   getFolderCol: () => {
      const uid = getCurrentUserId();
-     if (!uid) throw new Error("User not authenticated");
+     if (!uid) {
+       console.error("Unauthorized access attempt - user not authenticated");
+       throw new Error("User not authenticated");
+     }
      return collection(getDb(), "users", uid, "folders");
   },
   getBankCol: () => {
      const uid = getCurrentUserId();
-     if (!uid) throw new Error("User not authenticated");
+     if (!uid) {
+       console.error("Unauthorized access attempt - user not authenticated");
+       throw new Error("User not authenticated");
+     }
      return collection(getDb(), "users", uid, "banks");
   },
 

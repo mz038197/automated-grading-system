@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
       // 將程式碼中的 'process.env' 字串替換為實際的環境變數物件
       'process.env': {
         NODE_ENV: JSON.stringify(mode),
-        API_KEY: JSON.stringify(env.API_KEY || '')
+        API_KEY: env.API_KEY ? JSON.stringify(env.API_KEY.replace(/^"(.*)"$/, '$1')) : '""'
       }
     }
   };
